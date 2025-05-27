@@ -1,0 +1,80 @@
+/** @type {import('tailwindcss').Config} */
+module.exports = {
+  content: [
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {
+      colors: {
+        background: 'var(--background)',
+        'background-secondary': 'var(--background-secondary)',
+        'background-tertiary': 'var(--background-tertiary)',
+        foreground: 'var(--foreground)',
+        'foreground-secondary': 'var(--foreground-secondary)',
+        'foreground-muted': 'var(--foreground-muted)',
+        primary: 'var(--primary)',
+        'primary-dark': 'var(--primary-dark)',
+        'primary-light': 'var(--primary-light)',
+        'primary-accent': 'var(--primary-accent)',
+        'primary-accent-light': 'var(--primary-accent-light)',
+        'primary-accent-dark': 'var(--primary-accent-dark)',
+        secondary: 'var(--secondary)',
+        'secondary-dark': 'var(--secondary-dark)',
+        'secondary-darker': 'var(--secondary-darker)',
+        accent: 'var(--accent)',
+        'accent-warm': 'var(--accent-warm)',
+        'accent-purple': 'var(--accent-purple)',
+        'accent-emerald': 'var(--accent-emerald)',
+        success: 'var(--success)',
+        'success-light': 'var(--success-light)',
+        warning: 'var(--warning)',
+        'warning-light': 'var(--warning-light)',
+        danger: 'var(--danger)',
+        'danger-light': 'var(--danger-light)',
+        info: 'var(--info)',
+        'info-light': 'var(--info-light)',
+      },
+      borderRadius: {
+        DEFAULT: 'var(--border-radius)',
+        sm: 'var(--border-radius-sm)',
+        lg: 'var(--border-radius-lg)',
+        xl: 'var(--border-radius-xl)',
+      },
+      boxShadow: {
+        sm: 'var(--shadow-sm)',
+        DEFAULT: 'var(--shadow)',
+        md: 'var(--shadow-md)',
+        lg: 'var(--shadow-lg)',
+        xl: 'var(--shadow-xl)',
+        '2xl': 'var(--shadow-2xl)',
+      },
+      backgroundImage: {
+        'gradient-primary': 'var(--gradient-primary)',
+        'gradient-accent': 'var(--gradient-accent)',
+        'gradient-warm': 'var(--gradient-warm)',
+        'gradient-surface': 'var(--gradient-surface)',
+      },
+      animation: {
+        'fade-in': 'fadeIn 0.5s ease-in-out',
+        'slide-up': 'slideUp 0.3s ease-out',
+        'scale-in': 'scaleIn 0.2s ease-out',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        slideUp: {
+          '0%': { transform: 'translateY(10px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        scaleIn: {
+          '0%': { transform: 'scale(0.95)', opacity: '0' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+      },
+    },
+  },
+  plugins: [],
+};

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { UserRole } from '../types/auth';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -21,92 +21,154 @@ export default function AppointmentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<AppointmentStatus | 'ALL'>('ALL');
 
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      if (!user) return;
+  const fetchAppointments = useCallback(async () => {
+    if (!user) return;
 
-      try {
-        setLoading(true);
-        setError(null);
+    console.log('🔄 fetchAppointments called for user:', user.role, user.id);
 
-        const response = await appointmentService.getMyAppointments(
-          statusFilter !== 'ALL' ? statusFilter : undefined
-        );
+    try {
+      setLoading(true);
+      setError(null);
 
-        if (response.error) {
-          setError(response.error);
-          setAppointments([]);
-        } else if (response.data && Array.isArray(response.data)) {
-          setAppointments(response.data);
+      const response = await appointmentService.getMyAppointments(
+        statusFilter !== 'ALL' ? statusFilter : undefined
+      );
 
-          // Fetch doctor and patient details
-          const doctorIds = new Set<string>();
-          const patientIds = new Set<string>();
+      console.log('📋 fetchAppointments response:', response);
 
-          response.data.forEach((appointment) => {
-            doctorIds.add(appointment.doctorId);
-            patientIds.add(appointment.patientId);
-          });
+      if (response.error) {
+        setError(response.error);
+        setAppointments([]);
+      } else if (response.data && Array.isArray(response.data)) {
+        setAppointments(response.data);
 
-          // In a real app, we would fetch these details from the API
-          // For now, we'll simulate the data
-          const mockDoctors: Record<string, Doctor> = {};
-          const mockPatients: Record<string, Patient> = {};
+        // Fetch doctor and patient details
+        const doctorIds = new Set<string>();
+        const patientIds = new Set<string>();
 
-          // Simulate doctor data
-          Array.from(doctorIds).forEach((id) => {
-            mockDoctors[id] = {
+        response.data.forEach((appointment) => {
+          doctorIds.add(appointment.doctorId);
+          patientIds.add(appointment.patientId);
+        });
+
+        // Fetch actual doctor and patient data
+        const doctorsMap: Record<string, Doctor> = {};
+        const patientsMap: Record<string, Patient> = {};
+
+        // Fetch doctors data
+        if (doctorIds.size > 0) {
+          try {
+            const doctorsResponse = await doctorService.getDoctors();
+            if (doctorsResponse.data) {
+              doctorsResponse.data.forEach((doctor) => {
+                if (doctorIds.has(doctor.id)) {
+                  doctorsMap[doctor.id] = doctor;
+                }
+              });
+            }
+          } catch (error) {
+            console.warn('Failed to fetch doctors data:', error);
+          }
+        }
+
+        // Fetch patients data
+        if (patientIds.size > 0) {
+          try {
+            const patientsResponse = await patientService.getPatients();
+            if (patientsResponse.data) {
+              patientsResponse.data.forEach((patient) => {
+                if (patientIds.has(patient.id)) {
+                  patientsMap[patient.id] = patient;
+                }
+              });
+            }
+          } catch (error) {
+            console.warn('Failed to fetch patients data:', error);
+          }
+        }
+
+        // Fill in any missing data with fallback mock data
+        Array.from(doctorIds).forEach((id) => {
+          if (!doctorsMap[id]) {
+            doctorsMap[id] = {
               id,
               userId: `user-${id}`,
-              firstName: 'John',
-              lastName: 'Doe',
-              gender: 'MALE',
+              firstName: 'Dr.',
+              lastName: 'Unknown',
+              gender: 'MALE' as any,
               email: 'doctor@example.com',
               phone: '123-456-7890',
-              specialization: 'General Medicine',
               registrationNumber: 'REG12345',
-              qualifications: 'MD',
-              bio: 'Experienced doctor',
+              qualifications: ['MD'],
+              biography: 'Doctor information not available',
+              profileImageUrl: '',
+              status: 'ACTIVE' as any,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };
-          });
+          }
+        });
 
-          // Simulate patient data
-          Array.from(patientIds).forEach((id) => {
-            mockPatients[id] = {
+        Array.from(patientIds).forEach((id) => {
+          if (!patientsMap[id]) {
+            patientsMap[id] = {
               id,
               userId: `user-${id}`,
-              firstName: 'Jane',
-              lastName: 'Smith',
-              gender: 'FEMALE',
+              firstName: 'Patient',
+              lastName: 'Unknown',
+              gender: 'FEMALE' as any,
               email: 'patient@example.com',
               phone: '987-654-3210',
               dateOfBirth: '1990-01-01',
               address: '123 Main St',
-              medicalHistory: 'No major issues',
+              medicalHistory: 'No information available',
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
             };
-          });
+          }
+        });
 
-          setDoctors(mockDoctors);
-          setPatients(mockPatients);
-        } else {
-          // Fallback: set empty array if data is not an array
-          setAppointments([]);
-        }
-      } catch (err) {
-        setError('Failed to fetch appointments');
+        setDoctors(doctorsMap);
+        setPatients(patientsMap);
+      } else {
+        // Fallback: set empty array if data is not an array
         setAppointments([]);
-        console.error(err);
-      } finally {
-        setLoading(false);
+      }
+    } catch (err) {
+      setError('Failed to fetch appointments');
+      setAppointments([]);
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, statusFilter]);
+
+  useEffect(() => {
+    fetchAppointments();
+  }, [user, statusFilter, fetchAppointments]);
+
+  // Refresh appointments when the page becomes visible (e.g., after navigation)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchAppointments();
       }
     };
 
-    fetchAppointments();
-  }, [user, statusFilter]);
+    const handleFocus = () => {
+      fetchAppointments();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchAppointments]);
+
+
 
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setStatusFilter(e.target.value as AppointmentStatus | 'ALL');
@@ -122,17 +184,55 @@ export default function AppointmentsPage() {
       if (response.error) {
         setError(response.error);
       } else {
-        // Update the appointment in the list
-        setAppointments((prevAppointments) =>
-          prevAppointments.map((appointment) =>
-            appointment.id === appointmentId
-              ? { ...appointment, status: AppointmentStatus.CANCELLED }
-              : appointment
-          )
-        );
+        // Refresh appointments to get updated data
+        fetchAppointments();
       }
     } catch (err) {
       setError('Failed to cancel appointment');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmAppointment = async (appointmentId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await appointmentService.confirmAppointment(appointmentId);
+
+      if (response.error) {
+        setError(response.error);
+      } else {
+        // Refresh appointments to get updated data
+        fetchAppointments();
+      }
+    } catch (err) {
+      setError('Failed to confirm appointment');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRejectAppointment = async (appointmentId: string) => {
+    const reason = prompt('Please provide a reason for rejection (optional):');
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await appointmentService.rejectAppointment(appointmentId, reason || undefined);
+
+      if (response.error) {
+        setError(response.error);
+      } else {
+        // Refresh appointments to get updated data
+        fetchAppointments();
+      }
+    } catch (err) {
+      setError('Failed to reject appointment');
       console.error(err);
     } finally {
       setLoading(false);
@@ -260,11 +360,11 @@ export default function AppointmentsPage() {
                         <span
                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                             appointment.status === AppointmentStatus.SCHEDULED
-                              ? 'bg-yellow-100 text-yellow-800'
+                              ? 'bg-blue-100 text-blue-800'
                               : appointment.status === AppointmentStatus.CONFIRMED
                               ? 'bg-green-100 text-green-800'
                               : appointment.status === AppointmentStatus.COMPLETED
-                              ? 'bg-blue-100 text-blue-800'
+                              ? 'bg-purple-100 text-purple-800'
                               : appointment.status === AppointmentStatus.CANCELLED
                               ? 'bg-red-100 text-red-800'
                               : 'bg-gray-100 text-gray-800'
@@ -279,20 +379,25 @@ export default function AppointmentsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <Link
-                          href={`/appointments/${appointment.id}`}
-                          className="text-blue-600 hover:text-blue-900 mr-4"
-                        >
-                          View
-                        </Link>
-                        {appointment.status === AppointmentStatus.SCHEDULED && (
-                          <button
-                            onClick={() => handleCancelAppointment(appointment.id)}
-                            className="text-red-600 hover:text-red-900"
+                        <div className="flex items-center space-x-2">
+                          <Link
+                            href={`/appointments/${appointment.id}`}
+                            className="text-blue-600 hover:text-blue-900"
                           >
-                            Cancel
-                          </button>
-                        )}
+                            View
+                          </Link>
+
+                          {/* Cancel button for scheduled/confirmed appointments */}
+                          {(appointment.status === AppointmentStatus.SCHEDULED ||
+                            appointment.status === AppointmentStatus.CONFIRMED) && (
+                            <button
+                              onClick={() => handleCancelAppointment(appointment.id)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

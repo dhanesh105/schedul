@@ -30,6 +30,7 @@ export interface RegisterDoctorDto {
   gender: string;
   phone: string;
   registrationNumber: string;
+  profileImageUrl?: string;
 }
 
 export interface RegisterPatientDto {

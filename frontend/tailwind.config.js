@@ -74,6 +74,11 @@ module.exports = {
           '100%': { transform: 'scale(1)', opacity: '1' },
         },
       },
+      zIndex: {
+        '999998': '999998',
+        '999999': '999999',
+        'max': '2147483647',
+      },
     },
   },
   plugins: [],

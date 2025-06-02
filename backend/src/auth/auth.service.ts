@@ -21,7 +21,7 @@ export class AuthService {
   ) {}
 
   async registerDoctor(registerDoctorDto: RegisterDoctorDto) {
-    const { email, password, firstName, lastName, gender, phone, registrationNumber } = registerDoctorDto;
+    const { email, password, firstName, lastName, gender, phone, registrationNumber, profileImageUrl } = registerDoctorDto;
 
     // Check if user already exists
     const existingUser = await this.userRepository.findOne({ where: { email } });
@@ -54,6 +54,7 @@ export class AuthService {
       email,
       phone,
       registrationNumber,
+      profileImageUrl,
     });
     await this.doctorRepository.save(doctor);
 

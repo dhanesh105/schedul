@@ -1,15 +1,25 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../app/context/AuthContext';
 import { usePathname } from 'next/navigation';
+import NotificationBadge from './NotificationBadge';
 import Link from 'next/link';
 
 export default function Navbar() {
   const { isAuthenticated, user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+
+  // Handle mounting for SSR compatibility
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Helper function to determine if a link is active
   const isActiveLink = (href: string) => {
@@ -41,28 +51,41 @@ export default function Navbar() {
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
+    setIsProfileDropdownOpen(false); // Close profile dropdown when opening mobile menu
   };
 
   const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
   };
 
-  // Close mobile menu when clicking outside
+  const toggleProfileDropdown = () => {
+    setIsProfileDropdownOpen(!isProfileDropdownOpen);
+    setIsMobileMenuOpen(false); // Close mobile menu when opening profile dropdown
+  };
+
+  const closeProfileDropdown = () => {
+    setIsProfileDropdownOpen(false);
+  };
+
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
         closeMobileMenu();
       }
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+        closeProfileDropdown();
+      }
     };
 
-    if (isMobileMenuOpen) {
+    if (isMobileMenuOpen || isProfileDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isMobileMenuOpen]);
+  }, [isMobileMenuOpen, isProfileDropdownOpen]);
 
   return (
     <nav className="relative">
@@ -86,17 +109,6 @@ export default function Navbar() {
         {/* Links visible only when authenticated */}
         {isAuthenticated && (
           <>
-            <li>
-              <Link
-                href="/dashboard"
-                className={getLinkClasses("/dashboard", "px-4 py-2 rounded-full transition-colors duration-200 font-medium flex items-center")}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-1">
-                  <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z" />
-                </svg>
-                Dashboard
-              </Link>
-            </li>
 
             {/* Patient-specific links */}
             {user?.role === 'PATIENT' && (
@@ -129,7 +141,7 @@ export default function Navbar() {
             {/* Doctor-specific links */}
             {user?.role === 'DOCTOR' && (
               <>
-                <li>
+                <li className="flex items-center">
                   <Link
                     href="/appointments"
                     className={getLinkClasses("/appointments", "px-4 py-2 rounded-full transition-colors duration-200 font-medium flex items-center")}
@@ -139,6 +151,7 @@ export default function Navbar() {
                     </svg>
                     My Appointments
                   </Link>
+                  <NotificationBadge />
                 </li>
                 <li>
                   <Link
@@ -151,30 +164,77 @@ export default function Navbar() {
                     My Patients
                   </Link>
                 </li>
-                <li>
-                  <Link
-                    href="/schedules"
-                    className={getLinkClasses("/schedules", "px-4 py-2 rounded-full transition-colors duration-200 font-medium flex items-center")}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-1">
-                      <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" />
-                    </svg>
-                    My Schedule
-                  </Link>
-                </li>
+
               </>
             )}
 
-            <li>
-              <Link
-                href="/profile"
-                className={getLinkClasses("/profile", "px-4 py-2 rounded-full transition-colors duration-200 font-medium flex items-center")}
+            {/* Profile Dropdown */}
+            <li className="relative">
+              <button
+                onClick={toggleProfileDropdown}
+                className={`px-4 py-2 rounded-full transition-colors duration-200 font-medium flex items-center ${
+                  isActiveLink("/profile") || isActiveLink("/dashboard") || isActiveLink("/schedules")
+                    ? 'bg-gradient-to-r from-cyan-400/20 to-blue-500/20 text-cyan-200 font-semibold shadow-lg backdrop-blur-sm border border-cyan-400/30'
+                    : 'hover:bg-white/10 hover:backdrop-blur-sm hover:border hover:border-white/20'
+                }`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-1">
                   <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
                 </svg>
                 Profile
-              </Link>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className={`w-4 h-4 ml-1 transition-transform duration-200 ${isProfileDropdownOpen ? 'rotate-180' : ''}`}>
+                  <path fillRule="evenodd" d="M12.53 16.28a.75.75 0 01-1.06 0l-7.5-7.5a.75.75 0 011.06-1.06L12 14.69l6.97-6.97a.75.75 0 111.06 1.06l-7.5 7.5z" clipRule="evenodd" />
+                </svg>
+              </button>
+
+              {/* Profile Dropdown Menu */}
+              {isProfileDropdownOpen && (
+                <div
+                  ref={profileDropdownRef}
+                  className="absolute right-0 mt-2 w-56 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-slate-200/60 dark:border-slate-700/60 py-2 z-50"
+                >
+                  {/* Dashboard */}
+                  <Link
+                    href="/dashboard"
+                    onClick={closeProfileDropdown}
+                    className="flex items-center px-4 py-3 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3">
+                      <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z" />
+                    </svg>
+                    Dashboard
+                  </Link>
+
+                  {/* My Schedule - Only for doctors */}
+                  {user?.role === 'DOCTOR' && (
+                    <Link
+                      href="/schedules"
+                      onClick={closeProfileDropdown}
+                      className="flex items-center px-4 py-3 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3">
+                        <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" />
+                      </svg>
+                      My Schedule
+                    </Link>
+                  )}
+
+                  {/* Divider */}
+                  <div className="border-t border-slate-200 dark:border-slate-700 my-2"></div>
+
+                  {/* Profile */}
+                  <Link
+                    href="/profile"
+                    onClick={closeProfileDropdown}
+                    className="flex items-center px-4 py-3 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors duration-200"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3">
+                      <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+                    </svg>
+                    Edit Profile
+                  </Link>
+                </div>
+              )}
             </li>
             <li>
               <button
@@ -195,6 +255,17 @@ export default function Navbar() {
           <>
             <li>
               <Link
+                href="/doctors"
+                className={getLinkClasses("/doctors", "px-4 py-2 rounded-full transition-colors duration-200 font-medium flex items-center")}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-1">
+                  <path fillRule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clipRule="evenodd" />
+                </svg>
+                Doctors
+              </Link>
+            </li>
+            <li>
+              <Link
                 href="/login"
                 className={getLinkClasses("/login", "px-4 py-2 rounded-full transition-colors duration-200 font-medium flex items-center")}
               >
@@ -206,7 +277,7 @@ export default function Navbar() {
             </li>
             <li>
               <Link
-                href="/register/doctor"
+                href="/register"
                 className={getLinkClasses("/register", "px-4 py-2 rounded-full transition-colors duration-200 font-medium flex items-center")}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-1">
@@ -239,12 +310,24 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile Navigation Menu */}
-      {isMobileMenuOpen && (
-        <div
-          ref={mobileMenuRef}
-          className="absolute top-full right-0 mt-3 w-72 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-700/60 lg:hidden z-50 animate-in slide-in-from-top-2 duration-300"
-        >
+      {/* Mobile Navigation Menu - Rendered via Portal */}
+      {isMounted && isMobileMenuOpen && createPortal(
+        <>
+          {/* Backdrop overlay */}
+          <div
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm lg:hidden z-999998"
+            onClick={closeMobileMenu}
+          />
+
+          {/* Mobile menu */}
+          <div
+            ref={mobileMenuRef}
+            className="fixed w-72 bg-white/98 dark:bg-slate-800/98 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-200/60 dark:border-slate-700/60 lg:hidden animate-in slide-in-from-top-2 duration-300 z-max"
+            style={{
+              top: '100px',
+              right: '16px'
+            }}
+          >
           <div className="py-2">
             {/* Home link - always visible */}
             <Link
@@ -262,16 +345,6 @@ export default function Navbar() {
             {/* Authenticated user links */}
             {isAuthenticated && (
               <>
-                <Link
-                  href="/dashboard"
-                  onClick={closeMobileMenu}
-                  className={getMobileLinkClasses("/dashboard", "flex items-center px-4 py-3 transition-colors duration-200")}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3">
-                    <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z" />
-                  </svg>
-                  Dashboard
-                </Link>
 
                 {/* Patient-specific links */}
                 {user?.role === 'PATIENT' && (
@@ -322,19 +395,40 @@ export default function Navbar() {
                       </svg>
                       My Patients
                     </Link>
-                    <Link
-                      href="/schedules"
-                      onClick={closeMobileMenu}
-                      className={getMobileLinkClasses("/schedules", "flex items-center px-4 py-3 transition-colors duration-200")}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3">
-                        <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" />
-                      </svg>
-                      My Schedule
-                    </Link>
+
                   </>
                 )}
 
+                {/* Profile Section with Sub-items */}
+                <div className="border-t border-slate-200 dark:border-slate-700 my-2"></div>
+
+                {/* Dashboard */}
+                <Link
+                  href="/dashboard"
+                  onClick={closeMobileMenu}
+                  className={getMobileLinkClasses("/dashboard", "flex items-center px-4 py-3 transition-colors duration-200")}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3">
+                    <path d="M18.375 2.25c-1.035 0-1.875.84-1.875 1.875v15.75c0 1.035.84 1.875 1.875 1.875h.75c1.035 0 1.875-.84 1.875-1.875V4.125c0-1.036-.84-1.875-1.875-1.875h-.75zM9.75 8.625c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v11.25c0 1.035-.84 1.875-1.875 1.875h-.75a1.875 1.875 0 01-1.875-1.875V8.625zM3 13.125c0-1.036.84-1.875 1.875-1.875h.75c1.036 0 1.875.84 1.875 1.875v6.75c0 1.035-.84 1.875-1.875 1.875h-.75A1.875 1.875 0 013 19.875v-6.75z" />
+                  </svg>
+                  Dashboard
+                </Link>
+
+                {/* My Schedule - Only for doctors */}
+                {user?.role === 'DOCTOR' && (
+                  <Link
+                    href="/schedules"
+                    onClick={closeMobileMenu}
+                    className={getMobileLinkClasses("/schedules", "flex items-center px-4 py-3 transition-colors duration-200")}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3">
+                      <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" />
+                    </svg>
+                    My Schedule
+                  </Link>
+                )}
+
+                {/* Profile */}
                 <Link
                   href="/profile"
                   onClick={closeMobileMenu}
@@ -343,13 +437,13 @@ export default function Navbar() {
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3">
                     <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
                   </svg>
-                  Profile
+                  Edit Profile
                 </Link>
 
                 <button
                   onClick={() => {
-                    logout();
                     closeMobileMenu();
+                    logout();
                   }}
                   className="flex items-center w-full px-4 py-3 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
                 >
@@ -365,6 +459,16 @@ export default function Navbar() {
             {!isAuthenticated && (
               <>
                 <Link
+                  href="/doctors"
+                  onClick={closeMobileMenu}
+                  className={getMobileLinkClasses("/doctors", "flex items-center px-4 py-3 transition-colors duration-200")}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 mr-3">
+                    <path fillRule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clipRule="evenodd" />
+                  </svg>
+                  Doctors
+                </Link>
+                <Link
                   href="/login"
                   onClick={closeMobileMenu}
                   className={getMobileLinkClasses("/login", "flex items-center px-4 py-3 transition-colors duration-200")}
@@ -375,7 +479,7 @@ export default function Navbar() {
                   Login
                 </Link>
                 <Link
-                  href="/register/doctor"
+                  href="/register"
                   onClick={closeMobileMenu}
                   className={getMobileLinkClasses("/register", "flex items-center px-4 py-3 transition-colors duration-200")}
                 >
@@ -388,6 +492,8 @@ export default function Navbar() {
             )}
           </div>
         </div>
+        </>,
+        document.body
       )}
     </nav>
   );

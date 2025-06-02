@@ -36,19 +36,19 @@ export class AppointmentController {
   @Get()
   findAll(@Query('status') status?: string, @Query('startDate') startDate?: string, @Query('endDate') endDate?: string) {
     let filteredAppointments = [...mockAppointments];
-    
+
     if (status) {
       filteredAppointments = filteredAppointments.filter(a => a.status === status);
     }
-    
+
     if (startDate) {
       filteredAppointments = filteredAppointments.filter(a => a.date >= startDate);
     }
-    
+
     if (endDate) {
       filteredAppointments = filteredAppointments.filter(a => a.date <= endDate);
     }
-    
+
     return filteredAppointments;
   }
 
@@ -63,14 +63,26 @@ export class AppointmentController {
 
   @Post()
   create(@Body() createAppointmentDto: any) {
+    console.log('📝 Backend received appointment data:', createAppointmentDto);
+
     const newAppointment = {
-      id: uuidv4(),
+      // Use the ID from frontend if provided, otherwise generate new one
+      id: createAppointmentDto.id || uuidv4(),
       ...createAppointmentDto,
-      status: 'SCHEDULED',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      status: createAppointmentDto.status || 'SCHEDULED', // Automatically schedule appointments
+      createdAt: createAppointmentDto.createdAt || new Date().toISOString(),
+      updatedAt: createAppointmentDto.updatedAt || new Date().toISOString(),
     };
+
+    console.log('✅ Backend created appointment (auto-scheduled):', newAppointment);
     mockAppointments.push(newAppointment);
+
+    console.log('📊 Total appointments in backend:', mockAppointments.length);
+    console.log('🔍 All backend appointments:', mockAppointments);
+
+    // TODO: Send notification to doctor about new appointment
+    console.log(`📧 Notification: New appointment scheduled for Doctor ID ${newAppointment.doctorId} on ${newAppointment.date} at ${newAppointment.startTime}`);
+
     return newAppointment;
   }
 
@@ -80,27 +92,63 @@ export class AppointmentController {
     if (index === -1) {
       return { error: 'Appointment not found' };
     }
-    
+
     const updatedAppointment = {
       ...mockAppointments[index],
       ...updateAppointmentDto,
       updatedAt: new Date().toISOString(),
     };
-    
+
     mockAppointments[index] = updatedAppointment;
     return updatedAppointment;
   }
 
   @Put(':id/cancel')
   cancel(@Param('id') id: string) {
+    console.log('📝 Backend cancel appointment request for ID:', id);
     const index = mockAppointments.findIndex(a => a.id === id);
     if (index === -1) {
+      console.log('❌ Appointment not found for cancellation:', id);
       return { error: 'Appointment not found' };
     }
-    
+
     mockAppointments[index].status = 'CANCELLED';
     mockAppointments[index].updatedAt = new Date().toISOString();
-    
+
+    console.log('✅ Appointment cancelled:', mockAppointments[index]);
+    return mockAppointments[index];
+  }
+
+  @Put(':id/confirm')
+  confirm(@Param('id') id: string) {
+    console.log('📝 Backend confirm appointment request for ID:', id);
+    const index = mockAppointments.findIndex(a => a.id === id);
+    if (index === -1) {
+      console.log('❌ Appointment not found for confirmation:', id);
+      return { error: 'Appointment not found' };
+    }
+
+    mockAppointments[index].status = 'CONFIRMED';
+    mockAppointments[index].updatedAt = new Date().toISOString();
+
+    console.log('✅ Appointment confirmed:', mockAppointments[index]);
+    return mockAppointments[index];
+  }
+
+  @Put(':id/reject')
+  reject(@Param('id') id: string, @Body() body: { reason?: string }) {
+    console.log('📝 Backend reject appointment request for ID:', id, 'Reason:', body.reason);
+    const index = mockAppointments.findIndex(a => a.id === id);
+    if (index === -1) {
+      console.log('❌ Appointment not found for rejection:', id);
+      return { error: 'Appointment not found' };
+    }
+
+    mockAppointments[index].status = 'CANCELLED';
+    mockAppointments[index].notes = body.reason ? `Rejected: ${body.reason}` : 'Rejected by doctor';
+    mockAppointments[index].updatedAt = new Date().toISOString();
+
+    console.log('✅ Appointment rejected:', mockAppointments[index]);
     return mockAppointments[index];
   }
 
@@ -110,7 +158,7 @@ export class AppointmentController {
     if (index === -1) {
       return { error: 'Appointment not found' };
     }
-    
+
     const removedAppointment = mockAppointments.splice(index, 1)[0];
     return { message: 'Appointment removed successfully', appointment: removedAppointment };
   }
@@ -118,26 +166,26 @@ export class AppointmentController {
   @Get('doctor/:doctorId')
   findByDoctor(@Param('doctorId') doctorId: string, @Query('status') status?: string, @Query('date') date?: string) {
     let filteredAppointments = mockAppointments.filter(a => a.doctorId === doctorId);
-    
+
     if (status) {
       filteredAppointments = filteredAppointments.filter(a => a.status === status);
     }
-    
+
     if (date) {
       filteredAppointments = filteredAppointments.filter(a => a.date === date);
     }
-    
+
     return filteredAppointments;
   }
 
   @Get('patient/:patientId')
   findByPatient(@Param('patientId') patientId: string, @Query('status') status?: string) {
     let filteredAppointments = mockAppointments.filter(a => a.patientId === patientId);
-    
+
     if (status) {
       filteredAppointments = filteredAppointments.filter(a => a.status === status);
     }
-    
+
     return filteredAppointments;
   }
 

@@ -61,7 +61,15 @@ export async function fetchApi<T>(
     if (!response.ok) {
       console.error('API error:', data);
       return {
-        error: data.message || data.error || 'An error occurred while fetching data',
+        error: data.message || data.error || `HTTP ${response.status}: ${response.statusText}`,
+      };
+    }
+
+    // Handle empty response or invalid data
+    if (data === null || data === undefined || (typeof data === 'object' && Object.keys(data).length === 0)) {
+      console.warn('Empty or invalid response data:', data);
+      return {
+        error: 'No data received from server',
       };
     }
 

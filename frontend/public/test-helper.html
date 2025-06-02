@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schedula Test Helper</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        button.danger {
+            background: #e74c3c;
+        }
+        button.danger:hover {
+            background: #c0392b;
+        }
+        .info {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🩺 Schedula Test Helper</h1>
+        
+        <div class="info">
+            <strong>Instructions:</strong>
+            <ol>
+                <li>Use this helper to clear localStorage and test real-time appointment functionality</li>
+                <li>Clear localStorage to start fresh</li>
+                <li>Go back to the main app and test creating appointments</li>
+                <li>Check if appointments appear in "My Appointments"</li>
+            </ol>
+        </div>
+
+        <h3>LocalStorage Management</h3>
+        <button onclick="clearAppointments()" class="danger">Clear All Appointments</button>
+        <button onclick="clearAllStorage()" class="danger">Clear All LocalStorage</button>
+        <button onclick="showAppointments()">Show Current Appointments</button>
+        <button onclick="showAllStorage()">Show All LocalStorage</button>
+
+        <h3>Quick Actions</h3>
+        <button onclick="goToApp()">Go to Main App</button>
+        <button onclick="goToLogin()">Go to Login</button>
+
+        <div id="output"></div>
+    </div>
+
+    <script>
+        function clearAppointments() {
+            localStorage.removeItem('schedula_appointments');
+            showMessage('✅ Cleared all appointments from localStorage', 'success');
+        }
+
+        function clearAllStorage() {
+            localStorage.clear();
+            showMessage('✅ Cleared all localStorage data', 'success');
+        }
+
+        function showAppointments() {
+            const appointments = localStorage.getItem('schedula_appointments');
+            if (appointments) {
+                const parsed = JSON.parse(appointments);
+                showMessage(`📋 Found ${parsed.length} appointments:\n${JSON.stringify(parsed, null, 2)}`, 'info');
+            } else {
+                showMessage('📭 No appointments found in localStorage', 'info');
+            }
+        }
+
+        function showAllStorage() {
+            const storage = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                storage[key] = localStorage.getItem(key);
+            }
+            showMessage(`🗄️ All localStorage data:\n${JSON.stringify(storage, null, 2)}`, 'info');
+        }
+
+        function goToApp() {
+            window.open('http://localhost:3000', '_blank');
+        }
+
+        function goToLogin() {
+            window.open('http://localhost:3000/login', '_blank');
+        }
+
+        function showMessage(message, type) {
+            const output = document.getElementById('output');
+            const className = type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info';
+            output.innerHTML = `
+                <div style="margin-top: 20px; padding: 15px; border-radius: 5px; background: ${
+                    type === 'success' ? '#d4edda' : 
+                    type === 'error' ? '#f8d7da' : 
+                    '#d1ecf1'
+                }; border: 1px solid ${
+                    type === 'success' ? '#c3e6cb' : 
+                    type === 'error' ? '#f5c6cb' : 
+                    '#bee5eb'
+                };">
+                    <pre style="margin: 0; background: transparent; color: #333; white-space: pre-wrap;">${message}</pre>
+                </div>
+            `;
+        }
+
+        // Show current status on load
+        window.onload = function() {
+            showAppointments();
+        };
+    </script>
+</body>
+</html>

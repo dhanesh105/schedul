@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
 import { Gender } from '../../types/doctor';
+import AuthRedirect from '../../../components/AuthRedirect';
 
 export default function DoctorRegistrationPage() {
   const { registerDoctor, isLoading, error } = useAuth();
@@ -16,8 +17,11 @@ export default function DoctorRegistrationPage() {
     gender: Gender.MALE,
     phone: '',
     registrationNumber: '',
+    profileImageUrl: '',
   });
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -29,6 +33,45 @@ export default function DoctorRegistrationPage() {
     // Clear password error when user types in password fields
     if (name === 'password' || name === 'confirmPassword') {
       setPasswordError(null);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const imageUrl = event.target?.result as string;
+        setProfileImage(imageUrl);
+        setFormData((prev) => ({
+          ...prev,
+          profileImageUrl: imageUrl,
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setProfileImage(null);
+    setFormData((prev) => ({
+      ...prev,
+      profileImageUrl: '',
+    }));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -53,9 +96,13 @@ export default function DoctorRegistrationPage() {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <>
+      {/* Redirect authenticated users to dashboard */}
+      <AuthRedirect redirectIfAuthenticated={true} redirectTo="/dashboard" />
+
+      <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl w-full bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 py-6 px-4 sm:px-10">
+        <div className="bg-gradient-to-r from-slate-800 to-slate-900 py-6 px-4 sm:px-10">
           <div className="flex justify-center">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-12 h-12 text-white">
               <path fillRule="evenodd" d="M18.685 19.097A9.723 9.723 0 0021.75 12c0-5.385-4.365-9.75-9.75-9.75S2.25 6.615 2.25 12a9.723 9.723 0 003.065 7.097A9.716 9.716 0 0012 21.75a9.716 9.716 0 006.685-2.653zm-12.54-1.285A7.486 7.486 0 0112 15a7.486 7.486 0 015.855 2.812A8.224 8.224 0 0112 20.25a8.224 8.224 0 01-5.855-2.438zM15.75 9a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" clipRule="evenodd" />
@@ -64,7 +111,7 @@ export default function DoctorRegistrationPage() {
           <h1 className="mt-2 text-center text-3xl font-bold tracking-tight text-white">
             Doctor Registration
           </h1>
-          <p className="mt-2 text-center text-sm text-blue-100">
+          <p className="mt-2 text-center text-sm text-slate-300">
             Create your account to manage your doctor profile and appointments
           </p>
         </div>
@@ -93,6 +140,57 @@ export default function DoctorRegistrationPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Profile Photo Upload Section */}
+            <div className="flex justify-center mb-8">
+              <div className="text-center">
+                <div className="relative inline-block">
+                  {profileImage ? (
+                    <div className="relative">
+                      <img
+                        src={profileImage}
+                        alt="Profile preview"
+                        className="w-32 h-32 rounded-full object-cover border-4 border-slate-200 shadow-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-600 transition-colors"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                          <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 011.06 0L12 10.94l5.47-5.47a.75.75 0 111.06 1.06L13.06 12l5.47 5.47a.75.75 0 11-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 01-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 010-1.06z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-slate-100 border-4 border-slate-200 flex items-center justify-center shadow-lg">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-12 h-12 text-slate-400">
+                        <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageUpload}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="bg-slate-600 text-white px-4 py-2 rounded-md hover:bg-slate-700 transition-colors text-sm font-medium"
+                  >
+                    {profileImage ? 'Change Photo' : 'Upload Photo'}
+                  </button>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Optional: JPG, PNG up to 5MB
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
@@ -111,7 +209,7 @@ export default function DoctorRegistrationPage() {
                     value={formData.firstName}
                     onChange={handleChange}
                     required
-                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                     placeholder="John"
                   />
                 </div>
@@ -134,7 +232,7 @@ export default function DoctorRegistrationPage() {
                     value={formData.lastName}
                     onChange={handleChange}
                     required
-                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                     placeholder="Doe"
                   />
                 </div>
@@ -158,7 +256,7 @@ export default function DoctorRegistrationPage() {
                     value={formData.email}
                     onChange={handleChange}
                     required
-                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                     placeholder="doctor@example.com"
                   />
                 </div>
@@ -181,7 +279,7 @@ export default function DoctorRegistrationPage() {
                     value={formData.phone}
                     onChange={handleChange}
                     required
-                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                     placeholder="+1 (555) 123-4567"
                   />
                 </div>
@@ -203,7 +301,7 @@ export default function DoctorRegistrationPage() {
                     value={formData.gender}
                     onChange={handleChange}
                     required
-                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                   >
                     <option value={Gender.MALE}>Male</option>
                     <option value={Gender.FEMALE}>Female</option>
@@ -229,7 +327,7 @@ export default function DoctorRegistrationPage() {
                     value={formData.registrationNumber}
                     onChange={handleChange}
                     required
-                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                     placeholder="MED12345"
                   />
                 </div>
@@ -252,7 +350,7 @@ export default function DoctorRegistrationPage() {
                     value={formData.password}
                     onChange={handleChange}
                     required
-                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                     placeholder="••••••••"
                   />
                 </div>
@@ -276,7 +374,7 @@ export default function DoctorRegistrationPage() {
                     value={formData.confirmPassword}
                     onChange={handleChange}
                     required
-                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="pl-10 w-full px-3 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
                     placeholder="••••••••"
                   />
                 </div>
@@ -284,14 +382,14 @@ export default function DoctorRegistrationPage() {
             </div>
 
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              <Link href="/login" className="text-blue-600 hover:text-blue-800 transition-colors">
+              <Link href="/login" className="text-slate-600 hover:text-slate-800 transition-colors">
                 Already have an account? Sign in
               </Link>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full sm:w-auto flex justify-center py-3 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full sm:w-auto flex justify-center py-3 px-6 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isLoading ? (
                   <span className="flex items-center">
@@ -310,5 +408,6 @@ export default function DoctorRegistrationPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

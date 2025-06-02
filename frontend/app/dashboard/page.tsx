@@ -16,6 +16,9 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const [profile, setProfile] = useState<Doctor | Patient | null>(null);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [pendingAppointments, setPendingAppointments] = useState<Appointment[]>([]);
+  const [doctors, setDoctors] = useState<Record<string, Doctor>>({});
+  const [patients, setPatients] = useState<Record<string, Patient>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,11 +53,67 @@ export default function DashboardPage() {
           console.warn('Appointments error:', appointmentsResponse.error);
           // Don't set error for appointments, just use empty array
           setAppointments([]);
+          setPendingAppointments([]);
         } else if (appointmentsResponse.data && Array.isArray(appointmentsResponse.data)) {
           setAppointments(appointmentsResponse.data);
+
+          // Filter pending appointments for doctors
+          if (user.role === UserRole.DOCTOR) {
+            const pending = appointmentsResponse.data.filter(
+              apt => apt.status === AppointmentStatus.PENDING
+            );
+            setPendingAppointments(pending);
+          }
+
+          // Fetch doctor and patient data for appointments
+          const doctorIds = new Set<string>();
+          const patientIds = new Set<string>();
+
+          appointmentsResponse.data.forEach((appointment) => {
+            doctorIds.add(appointment.doctorId);
+            patientIds.add(appointment.patientId);
+          });
+
+          // Fetch doctors data
+          const doctorsMap: Record<string, Doctor> = {};
+          const patientsMap: Record<string, Patient> = {};
+
+          if (doctorIds.size > 0) {
+            try {
+              const doctorsResponse = await doctorService.getDoctors();
+              if (doctorsResponse.data) {
+                doctorsResponse.data.forEach((doctor) => {
+                  if (doctorIds.has(doctor.id)) {
+                    doctorsMap[doctor.id] = doctor;
+                  }
+                });
+              }
+            } catch (error) {
+              console.warn('Failed to fetch doctors data:', error);
+            }
+          }
+
+          if (patientIds.size > 0) {
+            try {
+              const patientsResponse = await patientService.getPatients();
+              if (patientsResponse.data) {
+                patientsResponse.data.forEach((patient) => {
+                  if (patientIds.has(patient.id)) {
+                    patientsMap[patient.id] = patient;
+                  }
+                });
+              }
+            } catch (error) {
+              console.warn('Failed to fetch patients data:', error);
+            }
+          }
+
+          setDoctors(doctorsMap);
+          setPatients(patientsMap);
         } else {
           // Fallback to empty array if data is not an array
           setAppointments([]);
+          setPendingAppointments([]);
         }
       } catch (err) {
         setError('Failed to fetch dashboard data');
@@ -132,15 +191,25 @@ export default function DashboardPage() {
             )}
 
             {user.role === UserRole.DOCTOR && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-indigo-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-indigo-800 mb-2">My Schedule</h3>
-                  <p className="text-indigo-600 text-sm mb-3">Manage your availability and schedule</p>
+                  <h3 className="font-semibold text-indigo-800 mb-2">Availability</h3>
+                  <p className="text-indigo-600 text-sm mb-3">Set your working hours and availability</p>
                   <Link
-                    href="/schedules"
+                    href={profile ? `/doctors/${(profile as Doctor).id}/availability` : '/profile'}
                     className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
                   >
-                    Manage Schedule
+                    Manage Hours
+                  </Link>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-green-800 mb-2">Appointments</h3>
+                  <p className="text-green-600 text-sm mb-3">View and manage your appointments</p>
+                  <Link
+                    href="/appointments"
+                    className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors text-sm"
+                  >
+                    View Schedule
                   </Link>
                 </div>
                 <div className="bg-orange-50 p-4 rounded-lg">
@@ -165,6 +234,69 @@ export default function DashboardPage() {
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Pending Appointments Notification for Doctors */}
+        {user?.role === UserRole.DOCTOR && pendingAppointments.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <svg className="w-8 h-8 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-medium text-orange-800">
+                    {pendingAppointments.length} Pending Appointment{pendingAppointments.length !== 1 ? 's' : ''}
+                  </h3>
+                  <p className="text-orange-700">
+                    You have new appointment requests that need your approval.
+                  </p>
+                </div>
+              </div>
+              <div className="flex-shrink-0">
+                <Link
+                  href="/appointments?status=PENDING"
+                  className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors"
+                >
+                  Review Requests
+                </Link>
+              </div>
+            </div>
+
+            {/* Show first few pending appointments */}
+            <div className="mt-4">
+              <div className="space-y-2">
+                {pendingAppointments.slice(0, 3).map((appointment) => (
+                  <div key={appointment.id} className="flex items-center justify-between bg-white p-3 rounded border border-orange-200">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {new Date(appointment.date).toLocaleDateString()} at {appointment.startTime}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          Reason: {appointment.reason || 'No reason provided'}
+                        </p>
+                      </div>
+                    </div>
+                    <Link
+                      href={`/appointments/${appointment.id}`}
+                      className="text-orange-600 hover:text-orange-800 text-sm font-medium"
+                    >
+                      Review
+                    </Link>
+                  </div>
+                ))}
+                {pendingAppointments.length > 3 && (
+                  <p className="text-sm text-orange-600 text-center">
+                    And {pendingAppointments.length - 3} more...
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -211,13 +343,26 @@ export default function DashboardPage() {
                         {appointment.startTime} - {appointment.endTime}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {/* This would be populated with actual data in a real app */}
-                        {user?.role === UserRole.DOCTOR ? 'Patient Name' : 'Dr. Name'}
+                        {user?.role === UserRole.DOCTOR ? (
+                          patients[appointment.patientId] ? (
+                            `${patients[appointment.patientId].firstName} ${patients[appointment.patientId].lastName}`
+                          ) : (
+                            'Loading...'
+                          )
+                        ) : (
+                          doctors[appointment.doctorId] ? (
+                            `Dr. ${doctors[appointment.doctorId].firstName} ${doctors[appointment.doctorId].lastName}`
+                          ) : (
+                            'Loading...'
+                          )
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
                           className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            appointment.status === AppointmentStatus.SCHEDULED
+                            appointment.status === AppointmentStatus.PENDING
+                              ? 'bg-orange-100 text-orange-800'
+                              : appointment.status === AppointmentStatus.SCHEDULED
                               ? 'bg-yellow-100 text-yellow-800'
                               : appointment.status === AppointmentStatus.CONFIRMED
                               ? 'bg-green-100 text-green-800'
@@ -226,7 +371,7 @@ export default function DashboardPage() {
                               : 'bg-gray-100 text-gray-800'
                           }`}
                         >
-                          {appointment.status}
+                          {appointment.status === AppointmentStatus.PENDING ? 'Pending Approval' : appointment.status}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

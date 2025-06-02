@@ -29,6 +29,8 @@ export interface Capability {
 
 export interface Doctor {
   id: string;
+  backendId?: string; // The actual UUID from the backend
+  userId?: string; // The user ID associated with this doctor
   firstName: string;
   lastName: string;
   gender: Gender;

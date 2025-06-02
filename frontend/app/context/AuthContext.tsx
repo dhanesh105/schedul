@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { authService } from '../api/authService';
-import { User, LoginDto, RegisterDoctorDto, RegisterPatientDto } from '../types/auth';
+import { User, LoginDto, RegisterDoctorDto, RegisterPatientDto, UserRole } from '../types/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -41,18 +41,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setError(null);
 
     try {
-      // For demo purposes, let's add a mock login
+      // For demo purposes, let's add mock logins
       // This will allow users to log in without a backend
-      if (credentials.email === 'demo@example.com' && credentials.password === 'password') {
+      if (credentials.email === 'doctor@gmail.com' && credentials.password === 'password') {
         const mockUser = {
           id: '1',
-          email: 'demo@example.com',
-          role: 'DOCTOR',
+          email: 'doctor@gmail.com',
+          role: UserRole.DOCTOR,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
 
-        const mockToken = 'mock-token-' + Date.now();
+        const mockToken = 'mock-token-doctor-' + Date.now();
+
+        authService.saveToken(mockToken);
+        authService.saveUser(mockUser);
+        setUser(mockUser);
+        router.push('/dashboard');
+        return;
+      }
+
+      if (credentials.email === 'patient@gmail.com' && credentials.password === 'password') {
+        const mockUser = {
+          id: '2',
+          email: 'patient@gmail.com',
+          role: UserRole.PATIENT,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        const mockToken = 'mock-token-patient-' + Date.now();
 
         authService.saveToken(mockToken);
         authService.saveUser(mockUser);

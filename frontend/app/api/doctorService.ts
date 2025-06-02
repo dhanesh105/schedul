@@ -24,15 +24,59 @@ export const doctorService = {
     try {
       const apiResponse = await get<Doctor[]>('/api/doctors');
 
-      // If the API call fails or returns an error, use mock data
-      if (apiResponse.error || !apiResponse.data) {
-        console.log('Using mock data for doctors:', apiResponse.error);
-        return { data: mockDoctors };
+      // If the API call succeeds, map backend doctors to frontend format
+      if (apiResponse.data && !apiResponse.error) {
+        console.log('✅ API returned doctors:', apiResponse.data);
+
+        // Map backend doctors to frontend format with simple IDs
+        const mappedDoctors: Doctor[] = apiResponse.data.map((backendDoctor: any, index: number) => ({
+          id: (index + 1).toString(), // Use simple IDs like '1', '2', '3'
+          backendId: backendDoctor.id, // Store the real backend ID for API calls
+          userId: backendDoctor.userId || `user-${index + 1}`,
+          firstName: backendDoctor.firstName,
+          lastName: backendDoctor.lastName,
+          gender: backendDoctor.gender,
+          email: backendDoctor.email,
+          phone: backendDoctor.phone,
+          registrationNumber: backendDoctor.registrationNumber,
+          qualifications: backendDoctor.qualifications || ['MD'],
+          biography: backendDoctor.biography || 'Experienced medical professional',
+          profileImageUrl: backendDoctor.profileImageUrl || '',
+          status: backendDoctor.status,
+          specializations: [{ id: '1', name: 'General Practice' }], // Default specialization
+          capabilities: [{ id: '1', name: 'General Consultation' }], // Default capability
+          createdAt: backendDoctor.createdAt,
+          updatedAt: backendDoctor.updatedAt,
+        }));
+
+        console.log('🔄 Mapped doctors for frontend:', mappedDoctors);
+
+        // Store the mapping in localStorage for appointment creation
+        if (typeof window !== 'undefined') {
+          const doctorMapping = mappedDoctors.reduce((acc, doctor: any) => {
+            acc[doctor.id] = doctor.backendId;
+            return acc;
+          }, {} as Record<string, string>);
+          localStorage.setItem('doctor_id_mapping', JSON.stringify(doctorMapping));
+          console.log('💾 Stored doctor ID mapping:', doctorMapping);
+
+          // Also store user ID to doctor ID mapping for authentication
+          const userToDoctorMapping = mappedDoctors.reduce((acc, doctor: any) => {
+            acc[doctor.userId] = doctor.id; // Map user ID to frontend doctor ID
+            return acc;
+          }, {} as Record<string, string>);
+          localStorage.setItem('user_to_doctor_mapping', JSON.stringify(userToDoctorMapping));
+          console.log('💾 Stored user to doctor mapping:', userToDoctorMapping);
+        }
+
+        return { data: mappedDoctors };
       }
 
-      return apiResponse;
+      // If the API call fails or returns an error, use mock data
+      console.log('⚠️ Using mock data for doctors:', apiResponse.error);
+      return { data: mockDoctors };
     } catch (err) {
-      console.error('Error fetching doctors:', err);
+      console.error('❌ Error fetching doctors:', err);
 
       // Use mock data as fallback
       console.log('Using mock data for doctors after error:', err);
@@ -41,19 +85,67 @@ export const doctorService = {
   },
   getDoctorById: async (id: string): Promise<ApiResponse<Doctor>> => {
     try {
-      const apiResponse = await get<Doctor>(`/api/doctors/${id}`);
-
-      // If the API call fails or returns an error, use mock data
-      if (apiResponse.error || !apiResponse.data) {
-        const doctor = mockDoctors.find(d => d.id === id);
-        if (!doctor) {
-          return { error: `Doctor with ID ${id} not found` };
+      // Get the backend ID from the stored mapping
+      let backendId = id;
+      if (typeof window !== 'undefined') {
+        const doctorMapping = localStorage.getItem('doctor_id_mapping');
+        if (doctorMapping) {
+          const mapping = JSON.parse(doctorMapping);
+          backendId = mapping[id] || id;
+          console.log(`🔄 Mapping frontend ID ${id} to backend ID ${backendId}`);
+        } else {
+          // If no mapping exists, fetch all doctors first to populate the mapping
+          console.log('🔄 No ID mapping found, fetching all doctors first...');
+          const doctorsResponse = await doctorService.getDoctors();
+          if (doctorsResponse.data) {
+            // Try to get the mapping again after fetching all doctors
+            const newDoctorMapping = localStorage.getItem('doctor_id_mapping');
+            if (newDoctorMapping) {
+              const mapping = JSON.parse(newDoctorMapping);
+              backendId = mapping[id] || id;
+              console.log(`🔄 After fetching doctors, mapping frontend ID ${id} to backend ID ${backendId}`);
+            }
+          }
         }
-        console.log(`Using mock data for doctor ${id}:`, doctor);
-        return { data: doctor };
       }
 
-      return apiResponse;
+      const apiResponse = await get<Doctor>(`/api/doctors/${backendId}`);
+
+      // If the API call succeeds, map the backend doctor to frontend format
+      if (apiResponse.data && !apiResponse.error) {
+        console.log('✅ API returned doctor:', apiResponse.data);
+
+        const mappedDoctor: Doctor = {
+          id: id, // Use the original frontend ID
+          backendId: apiResponse.data.id, // Store the backend ID
+          userId: apiResponse.data.userId,
+          firstName: apiResponse.data.firstName,
+          lastName: apiResponse.data.lastName,
+          gender: apiResponse.data.gender,
+          email: apiResponse.data.email,
+          phone: apiResponse.data.phone,
+          registrationNumber: apiResponse.data.registrationNumber,
+          qualifications: apiResponse.data.qualifications || ['MD'],
+          biography: apiResponse.data.biography || 'Experienced medical professional',
+          profileImageUrl: apiResponse.data.profileImageUrl || '',
+          status: apiResponse.data.status,
+          specializations: [{ id: '1', name: 'General Practice' }], // Default specialization
+          capabilities: [{ id: '1', name: 'General Consultation' }], // Default capability
+          createdAt: apiResponse.data.createdAt,
+          updatedAt: apiResponse.data.updatedAt,
+        };
+
+        console.log('🔄 Mapped doctor for frontend:', mappedDoctor);
+        return { data: mappedDoctor };
+      }
+
+      // If the API call fails or returns an error, use mock data
+      const doctor = mockDoctors.find(d => d.id === id);
+      if (!doctor) {
+        return { error: `Doctor with ID ${id} not found` };
+      }
+      console.log(`Using mock data for doctor ${id}:`, doctor);
+      return { data: doctor };
     } catch (err) {
       console.error(`Error fetching doctor ${id}:`, err);
 

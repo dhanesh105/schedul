@@ -14,10 +14,14 @@ export default function LeavesPage() {
       try {
         setLoading(true);
         const response = await doctorService.getDoctors();
+        console.log('Doctors response:', response);
+
         if (response.error) {
           setError(response.error);
-        } else if (response.data) {
+        } else if (response.data && Array.isArray(response.data)) {
           setDoctors(response.data);
+        } else {
+          setError('No data received');
         }
       } catch (err) {
         setError('Failed to fetch doctors');
@@ -54,7 +58,7 @@ export default function LeavesPage() {
         </a>
       </div>
 
-      {doctors.length === 0 ? (
+      {!Array.isArray(doctors) || doctors.length === 0 ? (
         <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded">
           <p>No doctors found. Add doctors first to manage their leaves.</p>
         </div>

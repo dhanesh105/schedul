@@ -4,21 +4,30 @@ import { useState, useEffect, FormEvent } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types/auth';
 import ProtectedRoute from '../../../components/ProtectedRoute';
+import SuccessDialog from '../../../components/SuccessDialog';
 import { Doctor } from '../../types/doctor';
 import { doctorService } from '../../api/doctorService';
 import { appointmentService } from '../../api/appointmentService';
-import { useRouter } from 'next/navigation';
+import { availabilityService } from '../../api/availabilityService';
+import { AvailableSlot } from '../../types/availability';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function BookAppointmentPage() {
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preSelectedDoctorId = searchParams.get('doctor');
+
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
+  const [availableSlots, setAvailableSlots] = useState<AvailableSlot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [slotsLoading, setSlotsLoading] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [createdAppointment, setCreatedAppointment] = useState<any>(null);
   const [formData, setFormData] = useState({
-    doctorId: '',
+    doctorId: preSelectedDoctorId || '',
     date: '',
     timeSlot: '',
     reason: '',
@@ -29,7 +38,7 @@ export default function BookAppointmentPage() {
       try {
         setLoading(true);
         setError(null);
-        
+
         const response = await doctorService.getDoctors();
         if (response.error) {
           setError(response.error);
@@ -64,60 +73,82 @@ export default function BookAppointmentPage() {
 
   const fetchAvailableSlots = async (doctorId: string, date: string) => {
     try {
-      setLoading(true);
+      setSlotsLoading(true);
       setError(null);
-      
-      // In a real app, this would call an API to get available slots
-      // For now, we'll simulate some time slots
-      const mockSlots = [
-        '09:00 - 09:30',
-        '09:30 - 10:00',
-        '10:00 - 10:30',
-        '10:30 - 11:00',
-        '11:00 - 11:30',
-        '11:30 - 12:00',
-        '14:00 - 14:30',
-        '14:30 - 15:00',
-        '15:00 - 15:30',
-        '15:30 - 16:00',
-      ];
-      
-      setAvailableSlots(mockSlots);
+
+      const response = await availabilityService.getAvailableSlots({
+        doctorId,
+        date,
+      });
+
+      if (response.error) {
+        setError(response.error);
+        setAvailableSlots([]);
+      } else if (response.data) {
+        // Filter out booked slots
+        const availableSlots = response.data.filter(slot => !slot.isBooked);
+        setAvailableSlots(availableSlots);
+      }
     } catch (err) {
       setError('Failed to fetch available slots');
       console.error(err);
+      setAvailableSlots([]);
     } finally {
-      setLoading(false);
+      setSlotsLoading(false);
     }
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
+
     if (!user) return;
-    
+
     try {
       setBookingLoading(true);
       setError(null);
-      
-      const [startTime, endTime] = formData.timeSlot.split(' - ');
-      
+
+      // Find the selected slot to get the exact times
+      const selectedSlot = availableSlots.find(slot =>
+        `${slot.startTime} - ${slot.endTime}` === formData.timeSlot
+      );
+
+      if (!selectedSlot) {
+        setError('Selected time slot is no longer available');
+        return;
+      }
+
       const appointmentData = {
         doctorId: formData.doctorId,
         patientId: user.id, // In a real app, this would be the patient's ID
         date: formData.date,
-        startTime,
-        endTime,
+        startTime: selectedSlot.startTime,
+        endTime: selectedSlot.endTime,
         reason: formData.reason,
       };
-      
+
+      console.log('📝 Creating appointment with data:', appointmentData);
+      console.log('👤 Current user:', user);
+
       const response = await appointmentService.createAppointment(appointmentData);
-      
+
+      console.log('📋 Appointment creation response:', response);
+
       if (response.error) {
         setError(response.error);
       } else if (response.data) {
-        // Redirect to appointments page
-        router.push('/appointments');
+        // Success - show success dialog
+        console.log('✅ Appointment created successfully, showing success dialog');
+        setCreatedAppointment(response.data);
+        setShowSuccessDialog(true);
+
+        // Reset form
+        setFormData({
+          doctorId: preSelectedDoctorId || '',
+          date: '',
+          timeSlot: '',
+          reason: '',
+        });
+        setAvailableSlots([]);
       }
     } catch (err) {
       setError('Failed to book appointment');
@@ -135,17 +166,34 @@ export default function BookAppointmentPage() {
     );
   }
 
+  const handleSuccessDialogClose = () => {
+    setShowSuccessDialog(false);
+    setCreatedAppointment(null);
+  };
+
+  const handleViewAppointments = () => {
+    console.log('🔄 Navigating to appointments page...');
+    setShowSuccessDialog(false);
+    setCreatedAppointment(null);
+    router.push('/appointments');
+  };
+
+  const getSelectedDoctorName = () => {
+    const selectedDoctor = doctors.find(d => d.id === formData.doctorId);
+    return selectedDoctor ? `Dr. ${selectedDoctor.firstName} ${selectedDoctor.lastName}` : 'Selected Doctor';
+  };
+
   return (
     <ProtectedRoute allowedRoles={[UserRole.PATIENT]}>
       <div className="py-8">
         <h1 className="text-3xl font-bold mb-6">Book an Appointment</h1>
-        
+
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
             <p>{error}</p>
           </div>
         )}
-        
+
         <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
@@ -163,12 +211,12 @@ export default function BookAppointmentPage() {
                 <option value="">-- Select a doctor --</option>
                 {doctors.map((doctor) => (
                   <option key={doctor.id} value={doctor.id}>
-                    Dr. {doctor.firstName} {doctor.lastName} ({doctor.specialization})
+                    Dr. {doctor.firstName} {doctor.lastName} ({doctor.specializations?.[0]?.name || 'General Practice'})
                   </option>
                 ))}
               </select>
             </div>
-            
+
             <div>
               <label htmlFor="date" className="block text-gray-700 font-medium mb-2">
                 Select Date
@@ -184,7 +232,7 @@ export default function BookAppointmentPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            
+
             <div>
               <label htmlFor="timeSlot" className="block text-gray-700 font-medium mb-2">
                 Select Time Slot
@@ -195,22 +243,27 @@ export default function BookAppointmentPage() {
                 value={formData.timeSlot}
                 onChange={handleChange}
                 required
-                disabled={!formData.doctorId || !formData.date}
+                disabled={!formData.doctorId || !formData.date || slotsLoading}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
               >
-                <option value="">-- Select a time slot --</option>
+                <option value="">
+                  {slotsLoading ? 'Loading available slots...' : '-- Select a time slot --'}
+                </option>
                 {availableSlots.map((slot) => (
-                  <option key={slot} value={slot}>
-                    {slot}
+                  <option key={`${slot.startTime}-${slot.endTime}`} value={`${slot.startTime} - ${slot.endTime}`}>
+                    {slot.startTime} - {slot.endTime}
                   </option>
                 ))}
               </select>
               {(!formData.doctorId || !formData.date) && (
                 <p className="text-sm text-gray-500 mt-1">Please select a doctor and date first</p>
               )}
+              {formData.doctorId && formData.date && availableSlots.length === 0 && !slotsLoading && (
+                <p className="text-sm text-red-500 mt-1">No available slots for this date</p>
+              )}
             </div>
           </div>
-          
+
           <div className="mb-6">
             <label htmlFor="reason" className="block text-gray-700 font-medium mb-2">
               Reason for Visit
@@ -226,7 +279,7 @@ export default function BookAppointmentPage() {
               placeholder="Please describe your symptoms or reason for the appointment"
             ></textarea>
           </div>
-          
+
           <div className="flex justify-end">
             <button
               type="submit"
@@ -237,6 +290,20 @@ export default function BookAppointmentPage() {
             </button>
           </div>
         </form>
+
+        {/* Success Dialog */}
+        <SuccessDialog
+          isOpen={showSuccessDialog}
+          onClose={handleSuccessDialogClose}
+          title="Appointment Scheduled Successfully!"
+          message={
+            createdAppointment
+              ? `Your appointment with ${getSelectedDoctorName()} has been scheduled for ${new Date(createdAppointment.date).toLocaleDateString()} at ${createdAppointment.startTime}. The doctor has been notified about your appointment.`
+              : 'Your appointment has been successfully scheduled! The doctor has been notified.'
+          }
+          actionLabel="View My Appointments"
+          onAction={handleViewAppointments}
+        />
       </div>
     </ProtectedRoute>
   );

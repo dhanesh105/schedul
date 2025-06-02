@@ -1,9 +1,28 @@
 import { get, post, put, del, ApiResponse } from './client';
 import { Patient, CreatePatientDto, UpdatePatientDto } from '../types/patient';
+import { mockPatients } from './mockData';
 
 export const patientService = {
   // Patient endpoints
-  getPatients: () => get<Patient[]>('/api/patients'),
+  getPatients: async (): Promise<ApiResponse<Patient[]>> => {
+    try {
+      const apiResponse = await get<Patient[]>('/api/patients');
+
+      // If the API call fails or returns an error, use mock data
+      if (apiResponse.error || !apiResponse.data) {
+        console.log('Using mock data for patients:', apiResponse.error);
+        return { data: mockPatients };
+      }
+
+      return apiResponse;
+    } catch (err) {
+      console.error('Error fetching patients:', err);
+
+      // Use mock data as fallback
+      console.log('Using mock data for patients after error:', err);
+      return { data: mockPatients };
+    }
+  },
   getPatientById: (id: string) => get<Patient>(`/api/patients/${id}`),
   createPatient: (patient: CreatePatientDto) => post<Patient>('/api/patients', patient),
   updatePatient: (id: string, patient: UpdatePatientDto) => put<Patient>(`/api/patients/${id}`, patient),

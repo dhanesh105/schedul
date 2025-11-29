@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types/auth';
 import ProtectedRoute from '../../../components/ProtectedRoute';
+import { scheduleService } from '../../api/scheduleService';
+import { doctorService } from '../../api/doctorService';
+import { WeeklySchedule } from '../../types/schedule';
 
 const DAYS_OF_WEEK = [
   'Monday',
@@ -29,22 +32,49 @@ interface ScheduleSlot {
 }
 
 export default function DoctorSchedulePage() {
-  useAuth(); // Keep the auth context for protected route
+  const { user } = useAuth(); // Get the logged-in user
   const [schedule, setSchedule] = useState<ScheduleSlot[]>([]);
+  const [weeklySchedules, setWeeklySchedules] = useState<WeeklySchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>(DAYS_OF_WEEK[0]);
+  const [doctorId, setDoctorId] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchSchedule = async () => {
+    const fetchDoctorAndSchedule = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // In a real app, we would fetch the doctor's schedule from the API
-        // For now, we'll create a default schedule with all slots available
+        // First, get the doctor's profile to get their ID
+        const doctorResponse = await doctorService.getMyProfile();
+        if (doctorResponse.error) {
+          setError(doctorResponse.error);
+          return;
+        }
+
+        const doctor = doctorResponse.data;
+        if (!doctor) {
+          setError('Doctor profile not found');
+          return;
+        }
+
+        setDoctorId(doctor.id);
+
+        // Fetch the doctor's weekly schedules
+        const schedulesResponse = await scheduleService.getSchedules(doctor.id);
+
+        // Don't treat empty schedules as an error - it's normal for new doctors
+        const schedules = schedulesResponse.data || [];
+        setWeeklySchedules(schedules);
+
+        // Log for debugging
+        console.log('Schedules response:', schedulesResponse);
+        console.log('Schedules data:', schedules);
+
+        // Convert weekly schedules to time slot format for editing
         const defaultSchedule: ScheduleSlot[] = [];
 
         DAYS_OF_WEEK.forEach((day) => {
@@ -58,22 +88,30 @@ export default function DoctorSchedulePage() {
           }
         });
 
-        // Set some slots as available for demo purposes
-        const demoSchedule = defaultSchedule.map((slot) => {
-          // Make 9 AM to 12 PM and 2 PM to 5 PM available on weekdays
-          if (
-            ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(slot.day) &&
-            (
-              (slot.startTime >= '09:00' && slot.startTime < '12:00') ||
-              (slot.startTime >= '14:00' && slot.startTime < '17:00')
-            )
-          ) {
-            return { ...slot, isAvailable: true };
-          }
-          return slot;
-        });
+        // If there are existing schedules, mark the available slots
+        if (schedules.length > 0) {
+          const currentSchedule = schedules[0]; // Use the first/current schedule
+          const updatedSchedule = defaultSchedule.map((slot) => {
+            // Find matching day schedule
+            const daySchedule = currentSchedule.daySchedules?.find(
+              (ds) => ds.dayOfWeek === DAYS_OF_WEEK.indexOf(slot.day) + 1 // dayOfWeek is 1-based
+            );
 
-        setSchedule(demoSchedule);
+            if (daySchedule && daySchedule.isAvailable) {
+              // Check if the slot falls within the day's working hours
+              if (slot.startTime >= daySchedule.startTime && slot.endTime <= daySchedule.endTime) {
+                return { ...slot, isAvailable: true };
+              }
+            }
+
+            return slot;
+          });
+
+          setSchedule(updatedSchedule);
+        } else {
+          // No existing schedule, use default
+          setSchedule(defaultSchedule);
+        }
       } catch (err) {
         setError('Failed to fetch schedule');
         console.error(err);
@@ -82,8 +120,10 @@ export default function DoctorSchedulePage() {
       }
     };
 
-    fetchSchedule();
-  }, []);
+    if (user?.role === UserRole.DOCTOR) {
+      fetchDoctorAndSchedule();
+    }
+  }, [user]);
 
   const handleSlotToggle = (day: string, startTime: string, endTime: string) => {
     setSchedule((prevSchedule) =>
@@ -96,14 +136,58 @@ export default function DoctorSchedulePage() {
   };
 
   const handleSaveSchedule = async () => {
+    if (!doctorId) {
+      setError('Doctor ID not found');
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
       setSuccess(null);
 
-      // In a real app, we would save the schedule to the API
-      // For now, we'll just simulate a delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Convert schedule slots back to weekly schedule format
+      const daySchedules = DAYS_OF_WEEK.map((day, index) => {
+        const daySlots = schedule.filter(slot => slot.day === day && slot.isAvailable);
+
+        if (daySlots.length === 0) {
+          return {
+            dayOfWeek: index + 1, // 1-based
+            isAvailable: false,
+            startTime: '09:00',
+            endTime: '17:00',
+            slotDurationMinutes: 30,
+          };
+        }
+
+        // Find the earliest start time and latest end time for the day
+        const startTime = daySlots.reduce((earliest, slot) =>
+          slot.startTime < earliest ? slot.startTime : earliest, daySlots[0].startTime);
+        const endTime = daySlots.reduce((latest, slot) =>
+          slot.endTime > latest ? slot.endTime : latest, daySlots[0].endTime);
+
+        return {
+          dayOfWeek: index + 1, // 1-based
+          isAvailable: true,
+          startTime,
+          endTime,
+          slotDurationMinutes: 30,
+        };
+      });
+
+      const scheduleData = {
+        effectiveFrom: new Date().toISOString().split('T')[0], // Today's date
+        effectiveTo: null, // Ongoing
+        daySchedules,
+      };
+
+      // Check if we have an existing schedule to update or need to create new
+      if (weeklySchedules.length > 0) {
+        const currentSchedule = weeklySchedules[0];
+        await scheduleService.updateSchedule(doctorId, currentSchedule.id, scheduleData);
+      } else {
+        await scheduleService.createSchedule(doctorId, scheduleData);
+      }
 
       setSuccess('Schedule saved successfully');
     } catch (err) {
@@ -120,6 +204,14 @@ export default function DoctorSchedulePage() {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (!user || user.role !== UserRole.DOCTOR) {
+    return (
+      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded my-4">
+        <p>Access denied. This page is only available to doctors.</p>
       </div>
     );
   }

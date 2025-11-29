@@ -68,6 +68,73 @@ const mockSchedules = [
     ],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+  },
+  // Add schedule for the actual doctor in the system
+  {
+    id: uuidv4(),
+    doctorId: 'f17d5306-c944-4385-82d8-ca6870f68718', // john doe doctor
+    effectiveFrom: '2024-06-01',
+    effectiveTo: null,
+    daySchedules: [
+      {
+        id: uuidv4(),
+        dayOfWeek: 1, // Monday
+        isAvailable: true,
+        startTime: '09:00',
+        endTime: '17:00',
+        slotDurationMinutes: 30,
+      },
+      {
+        id: uuidv4(),
+        dayOfWeek: 2, // Tuesday
+        isAvailable: true,
+        startTime: '09:00',
+        endTime: '17:00',
+        slotDurationMinutes: 30,
+      },
+      {
+        id: uuidv4(),
+        dayOfWeek: 3, // Wednesday
+        isAvailable: true,
+        startTime: '10:00',
+        endTime: '16:00',
+        slotDurationMinutes: 30,
+      },
+      {
+        id: uuidv4(),
+        dayOfWeek: 4, // Thursday
+        isAvailable: true,
+        startTime: '09:00',
+        endTime: '17:00',
+        slotDurationMinutes: 30,
+      },
+      {
+        id: uuidv4(),
+        dayOfWeek: 5, // Friday
+        isAvailable: true,
+        startTime: '09:00',
+        endTime: '15:00',
+        slotDurationMinutes: 30,
+      },
+      {
+        id: uuidv4(),
+        dayOfWeek: 6, // Saturday
+        isAvailable: false,
+        startTime: '',
+        endTime: '',
+        slotDurationMinutes: 0,
+      },
+      {
+        id: uuidv4(),
+        dayOfWeek: 0, // Sunday
+        isAvailable: false,
+        startTime: '',
+        endTime: '',
+        slotDurationMinutes: 0,
+      }
+    ],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   }
 ];
 

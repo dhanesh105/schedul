@@ -31,8 +31,14 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <AuthProvider>
-          <header className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shadow-2xl border-b border-slate-700/50 backdrop-blur-sm">
-            <div className="container mx-auto py-6 px-4">
+          <header className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white shadow-2xl border-b border-slate-700/50 backdrop-blur-sm overflow-hidden">
+            {/* Background decorative elements */}
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 via-blue-500/5 to-purple-500/5"></div>
+            <div className="absolute top-0 left-1/4 w-32 h-32 bg-gradient-to-r from-cyan-400/10 to-blue-500/10 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute top-0 right-1/4 w-24 h-24 bg-gradient-to-r from-purple-400/10 to-pink-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+            <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 w-40 h-40 bg-gradient-to-r from-blue-400/5 to-indigo-500/5 rounded-full blur-3xl"></div>
+
+            <div className="relative container mx-auto py-6 px-4">
               <div className="flex justify-between items-center">
                 <SchedulaLogo size="md" variant="full" showSubtitle={true} />
                 <Navbar />

@@ -69,6 +69,45 @@ export default function DoctorSchedulePage({ params }: { params: { id: string } 
     });
   };
 
+  const formatTime = (timeString: string): string => {
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  // Generate time slots for a given day
+  const generateTimeSlots = (startTime: string, endTime: string, slotDuration: number) => {
+    const slots = [];
+    const start = new Date(`2000-01-01T${startTime}`);
+    const end = new Date(`2000-01-01T${endTime}`);
+    const lunchStart = new Date(`2000-01-01T12:00:00`);
+    const lunchEnd = new Date(`2000-01-01T13:00:00`);
+
+    let current = new Date(start);
+
+    while (current < end) {
+      const slotEnd = new Date(current.getTime() + slotDuration * 60000);
+
+      // Skip lunch hour
+      if (!(current >= lunchStart && current < lunchEnd)) {
+        const timeString = current.toTimeString().slice(0, 5);
+        const endTimeString = slotEnd.toTimeString().slice(0, 5);
+
+        slots.push({
+          startTime: timeString,
+          endTime: endTimeString,
+          formatted: `${formatTime(timeString)} - ${formatTime(endTimeString)}`
+        });
+      }
+
+      current = slotEnd;
+    }
+
+    return slots;
+  };
+
   if (loading) {
     return <div className="text-center py-8">Loading schedule...</div>;
   }
@@ -132,36 +171,64 @@ export default function DoctorSchedulePage({ params }: { params: { id: string } 
                 </h2>
               </div>
               <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-6">
                   {schedule.daySchedules.map((daySchedule) => (
                     <div
                       key={daySchedule.id}
-                      className={`border rounded-lg p-4 ${
-                        daySchedule.isAvailable ? 'bg-green-50' : 'bg-red-50'
+                      className={`border rounded-lg ${
+                        daySchedule.isAvailable ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
                       }`}
                     >
-                      <h3 className="font-semibold mb-2">{getDayName(daySchedule.dayOfWeek)}</h3>
-                      {daySchedule.isAvailable ? (
-                        <>
-                          <p className="text-sm text-gray-600">
-                            <span className="font-medium">Hours:</span> {daySchedule.startTime} -{' '}
-                            {daySchedule.endTime}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            <span className="font-medium">Slot Duration:</span>{' '}
-                            {daySchedule.slotDurationMinutes} minutes
-                          </p>
-                          <div className="mt-2">
-                            <span className="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                              Available
-                            </span>
+                      <div className="p-4 border-b bg-white rounded-t-lg">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-lg font-semibold">{getDayName(daySchedule.dayOfWeek)}</h3>
+                          <div>
+                            {daySchedule.isAvailable ? (
+                              <span className="inline-block bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full">
+                                Available
+                              </span>
+                            ) : (
+                              <span className="inline-block bg-red-100 text-red-800 text-sm px-3 py-1 rounded-full">
+                                Not Available
+                              </span>
+                            )}
                           </div>
-                        </>
-                      ) : (
-                        <div className="mt-2">
-                          <span className="inline-block bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
-                            Not Available
-                          </span>
+                        </div>
+                        {daySchedule.isAvailable && (
+                          <div className="mt-2 text-sm text-gray-600">
+                            <span className="font-medium">Working Hours:</span> {formatTime(daySchedule.startTime)} - {formatTime(daySchedule.endTime)}
+                            <span className="ml-4 font-medium">Slot Duration:</span> {daySchedule.slotDurationMinutes} minutes
+                          </div>
+                        )}
+                      </div>
+
+                      {daySchedule.isAvailable && (
+                        <div className="p-4">
+                          <h4 className="font-medium text-gray-700 mb-3">Available Time Slots:</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2">
+                            {generateTimeSlots(
+                              daySchedule.startTime,
+                              daySchedule.endTime,
+                              daySchedule.slotDurationMinutes
+                            ).map((slot, index) => (
+                              <div
+                                key={index}
+                                className="bg-white border border-green-300 rounded-md p-2 text-center text-sm hover:bg-green-100 transition-colors cursor-pointer"
+                              >
+                                {slot.formatted}
+                              </div>
+                            ))}
+                          </div>
+                          {generateTimeSlots(
+                            daySchedule.startTime,
+                            daySchedule.endTime,
+                            daySchedule.slotDurationMinutes
+                          ).length === 0 && (
+                            <p className="text-gray-500 text-sm italic">No available slots</p>
+                          )}
+                          <div className="mt-3 text-xs text-gray-500">
+                            <span className="font-medium">Note:</span> Lunch break (12:00 PM - 1:00 PM) is excluded from available slots
+                          </div>
                         </div>
                       )}
                     </div>

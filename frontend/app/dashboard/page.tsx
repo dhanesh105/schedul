@@ -269,8 +269,8 @@ export default function DashboardPage() {
             {/* Show first few pending appointments */}
             <div className="mt-4">
               <div className="space-y-2">
-                {pendingAppointments.slice(0, 3).map((appointment) => (
-                  <div key={appointment.id} className="flex items-center justify-between bg-white p-3 rounded border border-orange-200">
+                {pendingAppointments.filter(appointment => appointment && appointment.id).slice(0, 3).map((appointment, index) => (
+                  <div key={appointment?.id || `pending-${index}`} className="flex items-center justify-between bg-white p-3 rounded border border-orange-200">
                     <div className="flex items-center space-x-3">
                       <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                       <div>
@@ -334,8 +334,8 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {Array.isArray(appointments) && appointments.map((appointment) => (
-                    <tr key={appointment.id}>
+                  {Array.isArray(appointments) && appointments.filter(appointment => appointment && appointment.id).map((appointment, index) => (
+                    <tr key={appointment?.id || `appointment-${index}`}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {new Date(appointment.date).toLocaleDateString()}
                       </td>

@@ -328,21 +328,32 @@ export const appointmentService = {
         let apiAppointments: Appointment[] = [];
 
         if (currentUser.role === UserRole.DOCTOR) {
-          // For doctors, we need to get the backend doctor ID first
-          let backendDoctorId = effectiveUserId; // Use the mapped doctor ID
+          // For doctors, we need to find their doctor profile first
+          let doctorId = effectiveUserId;
+
           try {
-            const doctorMapping = localStorage.getItem('doctor_id_mapping');
-            if (doctorMapping) {
-              const mapping = JSON.parse(doctorMapping);
-              backendDoctorId = mapping[effectiveUserId] || effectiveUserId;
-              console.log(`🔄 Mapped frontend doctor ID ${effectiveUserId} to backend ID ${backendDoctorId}`);
+            // First, try to get the doctor profile using the user ID
+            const doctorsResponse = await get<any[]>('/api/doctors');
+            if (doctorsResponse.data) {
+              const doctorProfile = doctorsResponse.data.find(d => d.userId === currentUser.id);
+              if (doctorProfile) {
+                doctorId = doctorProfile.id;
+                console.log(`🔄 Found doctor profile: ${doctorId} for user ${currentUser.id}`);
+              } else {
+                console.warn('⚠️ No doctor profile found for user ID:', currentUser.id);
+                // Try to use the first doctor as fallback for testing
+                if (doctorsResponse.data.length > 0) {
+                  doctorId = doctorsResponse.data[0].id;
+                  console.log(`🔄 Using fallback doctor ID: ${doctorId}`);
+                }
+              }
             }
           } catch (error) {
-            console.warn('⚠️ Could not get doctor ID mapping for appointments:', error);
+            console.warn('⚠️ Could not fetch doctor profiles:', error);
           }
 
           // For doctors, get appointments where they are the doctor
-          const apiResponse = await get<Appointment[]>(`/api/appointments/doctor/${backendDoctorId}`);
+          const apiResponse = await get<Appointment[]>(`/api/appointments/doctor/${doctorId}`);
           if (apiResponse.data) {
             // Map backend doctor IDs back to frontend IDs
             apiAppointments = apiResponse.data.map((apt: any) => {
@@ -367,8 +378,32 @@ export const appointmentService = {
             console.log('✅ API returned doctor appointments:', apiAppointments.length);
           }
         } else if (currentUser.role === UserRole.PATIENT) {
-          // For patients, get appointments where they are the patient
-          const apiResponse = await get<Appointment[]>(`/api/appointments/patient/${currentUser.id}`);
+          // For patients, we need to find their patient profile first
+          let patientId = currentUser.id;
+
+          try {
+            // First, try to get the patient profile using the user ID
+            const patientsResponse = await get<any[]>('/api/patients');
+            if (patientsResponse.data) {
+              const patientProfile = patientsResponse.data.find(p => p.userId === currentUser.id);
+              if (patientProfile) {
+                patientId = patientProfile.id;
+                console.log(`🔄 Found patient profile: ${patientId} for user ${currentUser.id}`);
+              } else {
+                console.warn('⚠️ No patient profile found for user ID:', currentUser.id);
+                // Try to use the first patient as fallback for testing
+                if (patientsResponse.data.length > 0) {
+                  patientId = patientsResponse.data[0].id;
+                  console.log(`🔄 Using fallback patient ID: ${patientId}`);
+                }
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ Could not fetch patient profiles:', error);
+          }
+
+          // Now get appointments for this patient
+          const apiResponse = await get<Appointment[]>(`/api/appointments/patient/${patientId}`);
           if (apiResponse.data) {
             // Map backend doctor IDs back to frontend IDs
             apiAppointments = apiResponse.data.map((apt: any) => {

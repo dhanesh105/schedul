@@ -58,45 +58,9 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Debug: Clear session if user is stuck */}
-            {isAuthenticated && (
-              <div className="bg-yellow-50 border border-yellow-200/50 rounded-xl p-4 mb-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-yellow-800">You are already logged in.</p>
-                    <p className="text-xs text-yellow-600">Clear session if you want to login as a different user.</p>
-                  </div>
-                  <button
-                    onClick={logout}
-                    className="bg-yellow-600 text-white px-3 py-1 rounded text-sm hover:bg-yellow-700 transition-colors"
-                  >
-                    Clear Session
-                  </button>
-                </div>
-              </div>
-            )}
 
-            {/* Demo credentials info */}
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-6">
-              <div className="flex items-center mb-3">
-                <div className="bg-slate-100 p-1.5 rounded-lg mr-3">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-slate-600">
-                    <path fillRule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <h3 className="text-sm font-semibold text-slate-900">Demo Credentials</h3>
-              </div>
-              <div className="space-y-2 text-sm text-slate-800">
-                <div className="flex items-center justify-between bg-white rounded-lg p-3">
-                  <span className="font-medium">Doctor:</span>
-                  <span className="font-mono text-xs">doctor@gmail.com / password</span>
-                </div>
-                <div className="flex items-center justify-between bg-white rounded-lg p-3">
-                  <span className="font-medium">Patient:</span>
-                  <span className="font-mono text-xs">patient@gmail.com / password</span>
-                </div>
-              </div>
-            </div>
+
+
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-6">

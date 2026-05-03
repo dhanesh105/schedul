@@ -27,7 +27,7 @@ import { Appointment } from './schedule-management/entities/appointment.entity';
       entities: [User, Doctor, Patient, Appointment],
       synchronize: process.env.DB_SYNC === 'true',
       logging: process.env.DB_LOGGING === 'true',
-      ssl: false,
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
       extra: {
         trustServerCertificate: true,
         // Try different connection options

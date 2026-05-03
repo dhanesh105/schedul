@@ -18,7 +18,10 @@ export async function fetchApi<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   try {
-    const url = `${API_URL}${endpoint}`;
+    // Clean up API_URL and endpoint to avoid double slashes
+    const baseUrl = API_URL.endsWith('/') ? API_URL.slice(0, -1) : API_URL;
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${baseUrl}${cleanEndpoint}`;
     console.log('Making API call to:', url);
     console.log('API_URL:', API_URL);
     console.log('Endpoint:', endpoint);
